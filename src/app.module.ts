@@ -17,7 +17,7 @@ import { RedisGateway } from './modules/redis-client/redis-gateway';
       store: redisStore,
       host: 'localhost',
       port: 6379,
-      ttl: 14,
+      ttl: 0,
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',

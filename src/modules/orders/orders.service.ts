@@ -65,16 +65,19 @@ export class OrdersService {
       this.ORDER_BOOK_KEY,
     );
 
-    console.log(orderBook);
-
     if (!orderBook) {
       throw new NotFoundException('OrderBook not found');
     }
 
     if (direction === OrderDirection.SELL) {
-      //buy => we have to look to buy
-
-      console.log('ala', orderBook.buyOrders);
+      const isDuplicate = await this.handleDublicateSellOrders(orderBook, price);
+    
+      if (isDuplicate) {
+          return; 
+      }
+      await this.sortSellOrders();
+      let isOrderMatched = false;
+      await this.redisGateway.get(this.ORDER_BOOK_KEY);
 
       for (let i = 0; i < orderBook.buyOrders.length; i++) {
         // минаваме по списъка buyOrders
@@ -82,9 +85,11 @@ export class OrdersService {
 
         if (
           buyObj.direction === OrderDirection.BUY &&
-          buyObj.amount <= amount &&
+          //buyObj.amount >= amount &&
           buyObj.price >= price
         ) {
+          isOrderMatched = true;
+
           //match
           const orderMatch = new OrderMatch();
           orderMatch.buyOrderId = buyObj.id;
@@ -92,37 +97,75 @@ export class OrdersService {
           orderMatch.amount = amount;
           orderMatch.price = price;
           orderMatch.createdAt = new Date();
-
           await this.orderMatchRepository.save(orderMatch);
 
-          if (amount >= buyObj.amount) {
-            amount = amount - buyObj.amount;
+          if (amount > buyObj.amount) {
+            amount = amount - buyObj.amount; //10 - 9 = 1
+
+            //ne trie ot redis
+            console.log('before delete from redis');
+            await this.redisGateway.delete(buyObj.id.toString());
+            console.log('id into the func', buyObj.id);
+            console.log('after delete from redis');
+
             await this.orderRepository.delete(buyObj.id);
+
+            //da zapishem nowiq order a:1 p:15 d:sell
+            const newOrder = new Order();
+            newOrder.amount = amount;
+            newOrder.price = price;
+            newOrder.remaining = amount;
+            newOrder.status = OrderStatus.OPEN;
+            newOrder.direction = OrderDirection.SELL;
+            newOrder.createdAt = new Date();
+            newOrder.matches = null;
+            await this.orderRepository.save(newOrder);
+
+            //изтрий от редис а:9 p:16
+
+            //запиши а:10 p:15
+          } else if (buyObj.amount > amount) {
+            //12 > 10
+            buyObj.amount = buyObj.amount - amount; //12 - 10 = 2
+            buyObj.remaining = buyObj.amount;
+            await this.orderRepository.save(buyObj);
           }
 
-          const newOrder = new Order();
-          newOrder.amount = amount;
-          newOrder.price = price;
-          newOrder.remaining = amount;
-          newOrder.status = OrderStatus.OPEN;
-          newOrder.direction = OrderDirection.SELL;
-          newOrder.createdAt = new Date();
-          newOrder.matches = null;
-
-          await this.orderRepository.save(newOrder);
+          await this.redisGateway.set(this.ORDER_BOOK_KEY, orderBook, 18000);
+          //zapisvame aktualiziraniq orderBook v Redis
 
           return orderMatch;
         }
       }
+
+      if (!isOrderMatched) {
+        const newOrder = new Order();
+        newOrder.amount = amount;
+        newOrder.price = price;
+        newOrder.remaining = amount;
+        newOrder.status = OrderStatus.OPEN;
+        newOrder.direction = OrderDirection.SELL;
+        newOrder.createdAt = new Date();
+        newOrder.matches = null;
+        await this.orderRepository.save(newOrder);
+
+        const orderBook: OrderBookDto = await this.redisGateway.get(
+          this.ORDER_BOOK_KEY,
+        );
+        orderBook.sellOrders.push(newOrder);
+        await this.redisGateway.set(this.ORDER_BOOK_KEY, orderBook, 18000);
+
+        return { message: 'No match! New order was created' };
+      }
     } else if (direction === OrderDirection.BUY) {
-      //sell => we have to look to sell
-
+      const isDuplicate = await this.handleDublicateBuyOrders(orderBook, price);
+    
+      if (isDuplicate) {
+          return; 
+      }
+      
+      await this.sortSellOrders();
       let idOrderMatched = false;
-
-      console.log('sell', orderBook);
-      console.log('sell', orderBook.sellOrders);
-
-      console.log('buy', orderBook.buyOrders);
 
       for (let i = 0; i < orderBook.sellOrders.length; i++) {
         const sellObj = orderBook.sellOrders[i]; //3, a:10, p: 26 //OBJ
@@ -134,8 +177,9 @@ export class OrdersService {
         ) {
           //match
           sellObj.amount = sellObj.amount - amount; //намаляме количеството на sell order-a с който сме сключили сделка = remaining
-          await this.orderRepository.save(sellObj);
           orderBook.sellOrders[i] = sellObj; //актуализираме масива
+          orderBook.sellOrders[i].remaining = sellObj.amount; //remaining да е равно на amount
+          await this.orderRepository.save(sellObj);
           await this.redisGateway.set(this.ORDER_BOOK_KEY, orderBook, 0);
 
           //make new record in OrderMatch
@@ -144,11 +188,17 @@ export class OrdersService {
           orderMatch.sellOrderId = sellObj.id;
           orderMatch.amount = amount;
           orderMatch.price = price;
-
           await this.orderMatchRepository.save(orderMatch);
 
           if (sellObj.amount <= 0) {
-            await this.orderRepository.delete(sellObj);
+            await this.orderRepository.delete(sellObj.id);
+
+            //remove specific order from Redis
+            await this.redisGateway.get(this.ORDER_BOOK_KEY);
+            orderBook.sellOrders = orderBook.sellOrders.filter(
+              (order) => order.id !== sellObj.id,
+            );
+            await this.redisGateway.set(this.ORDER_BOOK_KEY, orderBook, 18000);
           }
 
           idOrderMatched = true;
@@ -170,10 +220,9 @@ export class OrdersService {
         const orderBook: OrderBookDto = await this.redisGateway.get(
           this.ORDER_BOOK_KEY,
         );
-
         orderBook.buyOrders.push(newOrder);
-
         await this.redisGateway.set(this.ORDER_BOOK_KEY, orderBook, 18000);
+
         return { message: 'No match! New order was created' };
       }
     } else {
@@ -181,13 +230,85 @@ export class OrdersService {
     }
   }
 
-  async getSorderSellOrders(price: number) {
-    return this.orderRepository
-      .createQueryBuilder('order')
-      .where('order.direction = :direction', { direction: OrderDirection.SELL })
-      .andWhere('order.status = :status', { status: OrderStatus.OPEN })
-      .andWhere('order.price <= :price', { price })
-      .orderBy('order.price', 'ASC') // Най-ниските цени първи
-      .getMany();
+  async sortSellOrders(): Promise<OrderBookDto> {
+    const orderBook: OrderBookDto = await this.redisGateway.get(
+      this.ORDER_BOOK_KEY,
+    );
+
+    //console.log('before', orderBook.sellOrders);
+
+    orderBook.sellOrders.sort((a, b) => {
+      return a.price - b.price;
+    });
+
+    //console.log('after', orderBook.sellOrders);
+
+    await this.redisGateway.set(this.ORDER_BOOK_KEY, orderBook, 18000);
+    return orderBook;
+  }
+
+  async sortBuyOrders(): Promise<OrderBookDto> {
+    const orderBook: OrderBookDto = await this.redisGateway.get(
+      this.ORDER_BOOK_KEY,
+    );
+
+    // console.log('before', orderBook.sellOrders);
+
+    orderBook.buyOrders.sort((a, b) => {
+      return b.price - a.price;
+    });
+
+    //console.log('after', orderBook.sellOrders);
+
+    await this.redisGateway.set(this.ORDER_BOOK_KEY, orderBook, 18000);
+    return orderBook;
+  }
+
+  async handleDublicateBuyOrders(
+    orderBook: OrderBookDto,
+    price: number,
+   // amount: number,
+  ) {
+    const existingOrder = orderBook.buyOrders.find(
+      (order) =>
+        order.price === price && order.direction === OrderDirection.BUY,
+    );
+
+    if (existingOrder) {
+      
+      existingOrder.amount += 1; //dali trqbwa da e s 1 ili s kolichestvoto na amount
+
+      existingOrder.remaining = existingOrder.amount; 
+
+      await this.orderRepository.save(existingOrder); 
+      await this.redisGateway.set(this.ORDER_BOOK_KEY, orderBook, 0); 
+      return true; 
+    }
+
+    return false;
+  }
+
+  async handleDublicateSellOrders(
+    orderBook: OrderBookDto,
+    price: number,
+   // amount: number,
+  ) {
+    const existingOrder = orderBook.sellOrders.find(
+      (order) =>
+        order.price === price && order.direction === OrderDirection.SELL,
+    );
+
+    if (existingOrder) {
+      
+      existingOrder.amount += 1; //dali trqbwa da e s 1 ili s kolichestvoto na amount
+
+      existingOrder.remaining = existingOrder.amount; 
+
+      await this.orderRepository.save(existingOrder); 
+      await this.redisGateway.set(this.ORDER_BOOK_KEY, orderBook, 0); 
+      return true; 
+    }
+
+    return false;
   }
 }

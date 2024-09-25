@@ -14,10 +14,10 @@ export class OrderMatch {
   @Column()
   sellOrderId: number;
 
-  @Column()
+  @Column('float')
   price: number;
 
-  @Column()
+  @Column('float')
   amount: number;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })

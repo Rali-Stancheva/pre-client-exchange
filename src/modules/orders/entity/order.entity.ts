@@ -16,13 +16,13 @@ export class Order {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
+  @Column('float')
   amount: number;
 
-  @Column()
+  @Column('float')
   price: number;
 
-  @Column()
+  @Column('float')
   remaining: number; // what is the amount of order that has not been filled yet
 
   @Column()

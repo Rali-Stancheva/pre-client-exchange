@@ -36,6 +36,6 @@ export class Order {
 
 
 
-  @ManyToOne(() => OrderMatch, (matches) => matches.order) //probably wrong
+  @ManyToOne(() => OrderMatch, (matches) => matches.order) 
   matches: OrderMatch[];
 }

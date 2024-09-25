@@ -58,10 +58,8 @@ export class OrdersController {
   async createOrder(@Body() body: { id: number, amount: number, price: number, direction: string}) {
     const { id, amount, price, direction } = body;
 
-   const result = await this.ordersService.newOrderWithMatch(id, amount, price, direction);
-
-   // return  { message: 'Order matched successfully' };
-
+   const result = await this.ordersService.placeOrder(id, amount, price, direction);
+   
    return result;
   }
 

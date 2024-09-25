@@ -19,11 +19,5 @@ export class RedisGateway {
     return orderBookString ? JSON.parse(orderBookString) : { sellOrders: [], buyOrders: [] };
   }
 
-  async delete(key: string): Promise<void> {
-    console.log("into delete func")  
-    console.log("key", key)  
-    await this.cacheManager.del(key);
-  }
-
 
 }

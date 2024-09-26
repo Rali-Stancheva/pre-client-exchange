@@ -5,8 +5,6 @@ import { Inject, Injectable } from '@nestjs/common';
 
 @Injectable()
 export class RedisGateway {
-  // private static redisClient: RedisClientType;
-
  constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
 
   async set(key: string, value: any, ttl?: number): Promise<void> {

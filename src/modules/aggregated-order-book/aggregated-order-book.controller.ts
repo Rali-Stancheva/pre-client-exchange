@@ -13,6 +13,6 @@ export class AggregatedOrderBookController {
 
   @Get('/aggregated')
   async findAggregatedOrders(@Query('levels') levels: number) {
-    return this.aggregatedOrderBookService.findAggregatedOrders(Number(levels));
+    return this.aggregatedOrderBookService.findAggregatedOrders(levels);
   }
 }

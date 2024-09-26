@@ -2,17 +2,15 @@
 import { Injectable } from '@nestjs/common';
 import { RedisGateway } from '../redis-client/redis-gateway';
 import { OrderBookDto } from '../order-book/dto/order-book.dto';
-import { ORDER_BOOK_KEY } from 'src/common/constants/constants';
+import { ORDER_BOOK_KEY } from '../../common/constants/constants';
 
 @Injectable()
 export class AggregatedOrderBookService {
-  constructor(
-    private readonly redisGateway: RedisGateway,
-  ) {}
+  constructor(private readonly redisGateway: RedisGateway) {}
 
   async findAggregatedOrders(levels: number) {
     const orderBook: OrderBookDto = await this.sortOrders();
-    
+
     const aggregatedBuyOrders = orderBook.buyOrders
       .map((buyOrder) => ({
         id: buyOrder.id,
@@ -21,8 +19,7 @@ export class AggregatedOrderBookService {
       }))
       .slice(0, levels);
 
-
-    const selectedSellOrders = orderBook.sellOrders
+    const aggregatedSellOrders = orderBook.sellOrders
       .map((sellOrder) => ({
         id: sellOrder.id,
         amount: sellOrder.amount,
@@ -30,10 +27,10 @@ export class AggregatedOrderBookService {
       }))
       .slice(0, levels);
 
-    return { aggregatedBuyOrders, selectedSellOrders };
+    return { aggregatedBuyOrders, aggregatedSellOrders };
   }
 
-  async sortOrders(): Promise<OrderBookDto> {
+  private async sortOrders(): Promise<OrderBookDto> {
     const orderBook: OrderBookDto = await this.redisGateway.get(ORDER_BOOK_KEY);
 
     orderBook.buyOrders.sort((a, b) => b.price - a.price); // desc  golqmo -> malko

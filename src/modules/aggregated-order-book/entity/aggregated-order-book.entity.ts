@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 
-import { OrderBookEntry } from 'src/modules/order-book-entry/entity/order-book-entry.entity';
+import { OrderBookEntry } from '../../../modules/order-book-entry/entity/order-book-entry.entity';
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()

@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 
-import { AggregatedOrderBook } from 'src/modules/aggregated-order-book/entity/aggregated-order-book.entity';
+import { AggregatedOrderBook } from '../../../modules/aggregated-order-book/entity/aggregated-order-book.entity';
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()

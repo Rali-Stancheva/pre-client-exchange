@@ -1,8 +1,8 @@
 /* eslint-disable prettier/prettier */
 
-import { OrderDirection } from 'src/common/enums/order-direction.enum';
-import { OrderStatus } from 'src/common/enums/order-status.enum';
-import { OrderMatch } from 'src/modules/order-match/entity/order-match.entity';
+import { OrderDirection } from "../../../common/enums/order-direction.enum";
+import { OrderStatus } from "../../../common/enums/order-status.enum";
+import { OrderMatch } from '../../../modules/order-match/entity/order-match.entity';
 
 import {
   Column,

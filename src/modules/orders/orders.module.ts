@@ -5,7 +5,6 @@ import { OrdersController } from './orders.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Order } from './entity/order.entity';
 import { OrderMatch } from '../order-match/entity/order-match.entity';
-
 import { RedisGateway } from '../redis-client/redis-gateway';
 
 @Module({

@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 
-import { Order } from "src/modules/orders/entity/order.entity";
+import { Order } from "../../../modules/orders/entity/order.entity";
 
 export class OrderBookDto {
 

@@ -3,19 +3,18 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Order } from './entity/order.entity';
-import { OrderDirection } from 'src/common/enums/order-direction.enum';
-import { OrderStatus } from 'src/common/enums/order-status.enum';
+import { OrderDirection } from "../../common/enums/order-direction.enum";
+import { OrderStatus } from "../../common/enums/order-status.enum";
 import { OrderMatch } from '../order-match/entity/order-match.entity';
 import { RedisGateway } from '../redis-client/redis-gateway';
 import { OrderBookDto } from '../order-book/dto/order-book.dto';
-import { ORDER_BOOK_KEY } from 'src/common/constants/constants';
+import { ORDER_BOOK_KEY } from '../../common/constants/constants';
 
 @Injectable()
 export class OrdersService {
   constructor(
     @InjectRepository(Order) private orderRepository: Repository<Order>,
-    @InjectRepository(OrderMatch)
-    private readonly orderMatchRepository: Repository<OrderMatch>,
+    @InjectRepository(OrderMatch) private readonly orderMatchRepository: Repository<OrderMatch>,
     private readonly redisGateway: RedisGateway,
   ) {}
 
@@ -34,8 +33,15 @@ export class OrdersService {
 
 
   async findOrder(id: number) {
-    return this.orderRepository.findOneBy({ id });
+    const order = await this.orderRepository.findOneBy({ id });
+
+    if (!order) {
+      throw new NotFoundException(`Order with ID ${id} not found`);
+    }
+
+    return order;
   }
+
 
   async findOrderByDirectionAndStatus(
     direction: OrderDirection,
@@ -64,7 +70,6 @@ export class OrdersService {
       throw new Error('invalid input');
     }
   }
-
 
 
   private async handleSellOrder( orderId: number, amount: number, price: number,orderBook: OrderBookDto,) {

@@ -88,19 +88,17 @@ export class OrdersService {
     price: number,
     orderBook: OrderBookDto,
   ) {
-   
-    const isDuplicate = await this.handleDublicateSellOrders(orderBook, price);
+  
+    const isDuplicate = await this.handleDuplicateOrders(orderBook, price, OrderDirection.SELL, amount);
     if (isDuplicate) {
       return;
     }
 
-    await this.sortSellOrders();
+    await this.sortOrders(OrderDirection.SELL);
     let isOrderMatched = false;
 
     for (let i = 0; i < orderBook.buyOrders.length; i++) {
       const buyObj = orderBook.buyOrders[i]; //obektite koito sa buy kolonkata
-      
-
 
       if (buyObj.direction === OrderDirection.BUY && buyObj.price >= price) {
         isOrderMatched = true;
@@ -128,7 +126,6 @@ export class OrdersService {
     buyObj: Order,
     orderBook: OrderBookDto,
   ) {
-   
     const orderMatch = new OrderMatch();
     orderMatch.buyOrderId = buyObj.id;
     orderMatch.sellOrderId = orderId;
@@ -215,12 +212,14 @@ export class OrdersService {
     price: number,
     orderBook: OrderBookDto,
   ) {
-    const isDuplicate = await this.handleDublicateBuyOrders(orderBook, price);
+
+    const isDuplicate = await this.handleDuplicateOrders(orderBook, price, OrderDirection.BUY, amount);
     if (isDuplicate) {
       return;
     }
 
-    await this.sortBuyOrders();
+  
+    await this.sortOrders(OrderDirection.BUY);
     let idOrderMatched = false;
 
     for (let i = 0; i < orderBook.sellOrders.length; i++) {
@@ -298,69 +297,39 @@ export class OrdersService {
     return { message: 'No match! New order was created' };
   }
 
-  private async sortSellOrders(): Promise<OrderBookDto> {
+
+  private async sortOrders(orderDirection: OrderDirection): Promise<OrderBookDto> {
     const orderBook: OrderBookDto = await this.redisGateway.get(ORDER_BOOK_KEY);
 
-    if (orderBook.sellOrders && orderBook.sellOrders.length > 0) {
-      orderBook.sellOrders.sort((a, b) => a.price - b.price);
+    if (orderDirection === OrderDirection.SELL && orderBook.sellOrders && orderBook.sellOrders.length > 0 ) {
+      orderBook.sellOrders.sort((a, b) => a.price - b.price); 
+    } else if ( orderDirection === OrderDirection.BUY && orderBook.buyOrders && orderBook.buyOrders.length > 0) {
+      orderBook.buyOrders.sort((a, b) => b.price - a.price); 
     }
 
     await this.redisGateway.set(ORDER_BOOK_KEY, orderBook, 18000);
     return orderBook;
   }
 
-  private async sortBuyOrders(): Promise<OrderBookDto> {
-    const orderBook: OrderBookDto = await this.redisGateway.get(ORDER_BOOK_KEY);
-
-    if(orderBook.buyOrders && orderBook.buyOrders.length > 0){
-      orderBook.buyOrders.sort((a, b) => b.price - a.price);
-    }
+  
+  private async handleDuplicateOrders(orderBook: OrderBookDto, price: number, orderDirection: OrderDirection, amount: number): Promise<boolean> {
     
-    await this.redisGateway.set(ORDER_BOOK_KEY, orderBook, 18000);
-    return orderBook;
-  }
-
-
-
-
-  //ако има едни и същи хора с еднакъв order просто да се увеличи amount-a, не се създава нов запис
-  private async handleDublicateBuyOrders(
-    orderBook: OrderBookDto,
-    price: number,
-  ) {
-    const existingOrder = orderBook.buyOrders.find(
-      (order) =>
-        order.price === price && order.direction === OrderDirection.BUY,
+    const orders = orderDirection === OrderDirection.BUY ? orderBook.buyOrders : orderBook.sellOrders;
+    
+    const existingOrder = orders.find(
+      (order) => order.price === price && order.direction === orderDirection
     );
-
+  
     if (existingOrder) {
-      existingOrder.amount += 1; //ne s 1 ami
+      existingOrder.amount += amount;  
       existingOrder.remaining = existingOrder.amount;
+  
       await this.orderRepository.save(existingOrder);
       await this.redisGateway.set(ORDER_BOOK_KEY, orderBook, 0);
       return true;
     }
+  
     return false;
   }
-
-  //ако има едни и същи хора с еднакъв order просто да се увеличи amount-a, не се създава нов запис
-  private async handleDublicateSellOrders(
-    orderBook: OrderBookDto,
-    price: number,
-  ) {
-    const existingOrder = orderBook.sellOrders.find(
-      (order) =>
-        order.price === price && order.direction === OrderDirection.SELL,
-    );
-
-    if (existingOrder) {
-      existingOrder.amount += 1; //дали трябва да се увеличи с 1 или с amount-a на нови човек
-      existingOrder.remaining = existingOrder.amount;
-
-      await this.orderRepository.save(existingOrder);
-      await this.redisGateway.set(ORDER_BOOK_KEY, orderBook, 0);
-      return true;
-    }
-    return false;
-  }
+  
 }

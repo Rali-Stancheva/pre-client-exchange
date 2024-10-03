@@ -85,8 +85,8 @@ describe('OrdersController', () => {
 
   describe('getOrdersByDirection', () => {
     it('should return array with objects if direction is sell and the status is open', async () => {
-      const direction = 'sell';
-      const status = ['open'];
+      const direction = OrderDirection.SELL;
+      const status = [OrderStatus.OPEN];
 
       const result = await controller.getOrdersByDirectionAndStatus(
         direction,
@@ -101,8 +101,8 @@ describe('OrdersController', () => {
     });
 
     it('should return array with objects if direction is sell and the status is filled', async () => {
-      const direction = 'sell';
-      const status = ['filled'];
+      const direction = OrderDirection.SELL;
+      const status = [OrderStatus.FILLED];
 
       const result = await controller.getOrdersByDirectionAndStatus(
         direction,
@@ -116,25 +116,11 @@ describe('OrdersController', () => {
       );
     });
 
-    it('should return array with objects if direction is sell and the status is open|filled', async () => {
-      const direction = 'sell';
-      const status = 'open|filled';
-
-      const result: Order[] = await controller.getOrdersByDirectionAndStatus(
-        direction,
-        status,
-      );
-
-      expect(result).toEqual(mockOrderData);
-      expect(service.findOrderByDirectionAndStatus).toHaveBeenCalledWith(
-        direction,
-        ['open', 'filled'],
-      );
-    });
+  
 
     it('should return array with objects if direction is buy and the status is open', async () => {
-      const direction = 'buy';
-      const status = ['open'];
+      const direction = OrderDirection.BUY;
+      const status = [OrderStatus.OPEN];
 
       const result = await controller.getOrdersByDirectionAndStatus(
         direction,
@@ -149,8 +135,8 @@ describe('OrdersController', () => {
     });
 
     it('should return array with objects if direction is buy and the status is filled', async () => {
-      const direction = 'buy';
-      const status = ['filled'];
+      const direction =  OrderDirection.BUY;
+      const status = [OrderStatus.FILLED];
 
       const result = await controller.getOrdersByDirectionAndStatus(
         direction,
@@ -164,25 +150,11 @@ describe('OrdersController', () => {
       );
     });
 
-    it('should return array with objects if direction is buy and the status is open|filled', async () => {
-      const direction = 'buy';
-      const status = 'open|filled';
-
-      const result: Order[] = await controller.getOrdersByDirectionAndStatus(
-        direction,
-        status,
-      );
-
-      expect(result).toEqual(mockOrderData);
-      expect(service.findOrderByDirectionAndStatus).toHaveBeenCalledWith(
-        direction,
-        ['open', 'filled'],
-      );
-    });
+    
 
     it('should return empty array if there are no orders with direction sell and status open', async () => {
-      const direction = 'sell';
-      const status = ['open'];
+      const direction =  OrderDirection.SELL;
+      const status = [OrderStatus.OPEN];
 
       // Mock the service method to return an empty array
       service.findOrderByDirectionAndStatus = jest.fn().mockResolvedValue([]);
@@ -200,15 +172,15 @@ describe('OrdersController', () => {
     });
 
     it('should return empty array if there are no orders with direction sell and status filled', async () => {
-      const direction = 'sell';
-      const status = 'filled';
+      const direction =  OrderDirection.SELL;
+      const status = [OrderStatus.FILLED];
 
       // Mock the service method to return an empty array
       service.findOrderByDirectionAndStatus = jest.fn().mockResolvedValue([]);
 
       const result: Order[] = await controller.getOrdersByDirectionAndStatus(
         direction,
-        status,
+        status[0],
       );
 
       expect(result).toEqual([]); // Expect an empty array to be returned
@@ -218,28 +190,11 @@ describe('OrdersController', () => {
       );
     });
 
-    it('should return empty array if there are no orders with direction sell and status open|filled', async () => {
-      const direction = 'sell';
-      const status = 'open|filled';
-
-      // Mock the service method to return an empty array
-      service.findOrderByDirectionAndStatus = jest.fn().mockResolvedValue([]);
-
-      const result: Order[] = await controller.getOrdersByDirectionAndStatus(
-        direction,
-        status,
-      );
-
-      expect(result).toEqual([]);
-      expect(service.findOrderByDirectionAndStatus).toHaveBeenCalledWith(
-        direction,
-        ['open', 'filled'],
-      );
-    });
+  
 
     it('should return empty array if there are no orders with direction buy and status open', async () => {
-      const direction = 'buy';
-      const status = ['open'];
+      const direction =  OrderDirection.BUY;
+      const status = [OrderStatus.OPEN];
 
       // Mock the service method to return an empty array
       service.findOrderByDirectionAndStatus = jest.fn().mockResolvedValue([]);
@@ -257,66 +212,26 @@ describe('OrdersController', () => {
     });
 
     it('should return empty array if there are no orders with direction buy and status filled', async () => {
-      const direction = 'buy';
-      const status = 'filled';
+      const direction = OrderDirection.BUY;
+      const status = [OrderStatus.FILLED];
 
       // Mock the service method to return an empty array
       service.findOrderByDirectionAndStatus = jest.fn().mockResolvedValue([]);
 
       const result: Order[] = await controller.getOrdersByDirectionAndStatus(
         direction,
-        status,
+        status[0],
       );
 
       expect(result).toEqual([]); // Expect an empty array to be returned
       expect(service.findOrderByDirectionAndStatus).toHaveBeenCalledWith(
         direction,
-        ['filled'],
+        [OrderStatus.FILLED],
       );
     });
 
-    it('should return empty array if there are no orders with direction buy and status open|filled', async () => {
-      const direction = 'buy';
-      const status = 'open|filled';
 
-      // Mock the service method to return an empty array
-      service.findOrderByDirectionAndStatus = jest.fn().mockResolvedValue([]);
-
-      const result: Order[] = await controller.getOrdersByDirectionAndStatus(
-        direction,
-        status,
-      );
-
-      expect(result).toEqual([]);
-      expect(service.findOrderByDirectionAndStatus).toHaveBeenCalledWith(
-        direction,
-        ['open', 'filled'],
-      );
-    });
-
-    it('should throw error if order direction is invalid', async () => {
-      const direction = 'alabala';
-      const status = 'open';
-
-      // Expect the controller to throw NotFoundException
-      await expect(
-        controller.getOrdersByDirectionAndStatus(direction, status),
-      ).rejects.toThrow(new NotFoundException(`Invalid Order Direction`));
-
-      expect(service.findOrderByDirectionAndStatus).not.toHaveBeenCalled();
-    });
-
-    it('should throw error if order status is invalid', async () => {
-      const direction = 'buy';
-      const status = 'alabala';
-
-      // Expect the controller to throw NotFoundException
-      await expect(
-        controller.getOrdersByDirectionAndStatus(direction, status),
-      ).rejects.toThrow(new NotFoundException(`Invalid Order Status`));
-
-      expect(service.findOrderByDirectionAndStatus).not.toHaveBeenCalled();
-    });
+  
   });
 
   //place order

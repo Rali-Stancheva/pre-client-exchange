@@ -14,7 +14,6 @@ import { AggregatedOrderBookDto } from 'src/modules/aggregated-order-book/dto/ag
 describe('AggregatedOrderook test', () => {
   let app: INestApplication;
   let redisGateway: RedisGateway;
-  // let service: ;
 
   beforeEach(async () => {
     jest.clearAllMocks();

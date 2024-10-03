@@ -12,10 +12,12 @@ import { OrderBookDto } from '../src/modules/order-book/dto/order-book.dto';
 import { RedisGateway } from '../src/modules/redis-client/redis-gateway';
 import { ORDER_BOOK_KEY } from '../src/common/constants/constants';
 import { OrdersService } from '../src/modules/orders/orders.service';
+import { OrderMatch } from '../src/modules/order-match/entity/order-match.entity';
 
 describe('OrdersController test', () => {
   let app: INestApplication;
   let orderRepository: Repository<Order>;
+  let orderMathRepository: Repository<OrderMatch>;
   let redisGateway: RedisGateway;
   let service: OrdersService;
 
@@ -30,6 +32,9 @@ describe('OrdersController test', () => {
     orderRepository = moduleFixture.get<Repository<Order>>(
       getRepositoryToken(Order),
     );
+    orderMathRepository = moduleFixture.get<Repository<OrderMatch>>(
+      getRepositoryToken(OrderMatch),
+    );
     service = moduleFixture.get<OrdersService>(OrdersService);
     app = moduleFixture.createNestApplication();
     await app.init();
@@ -37,7 +42,9 @@ describe('OrdersController test', () => {
 
   afterEach(async () => {
     await redisGateway.delete(ORDER_BOOK_KEY);
+    await orderMathRepository.delete({});
     await orderRepository.clear();
+    
     await app.close();
   });
 
@@ -69,7 +76,6 @@ describe('OrdersController test', () => {
 
   it('/orders/:direction (GET) - should return orders with the correct status and direction sell', async () => {
     await orderRepository.save(orderRepository.create(orderOne));
-    console.log('works');
 
     const response = await request(app.getHttpServer())
       .get('/api/exchange/orders/sell?status=open')
@@ -86,33 +92,6 @@ describe('OrdersController test', () => {
     expect(orders.length).toEqual(1);
     expect(orders[0]).toEqual(expect.objectContaining({ ...expectedOrderOne }));
   }, 60000);
-
-  //   it('/orders/:direction (GET) - should return orders with the correct status and direction buy', async () => {
-  //     // Fetch the order book from Redis
-  //     const orderBook: OrderBookDto = await redisGateway.get(ORDER_BOOK_KEY);
-
-  //     const response = await request(app.getHttpServer())
-  //       .get('/api/exchange/orders/buy?status=open')
-  //       .expect(200);
-
-  //     const orders = response.body;
-
-  //     // Validate that each order in the response matches the expected properties
-  //     orders.forEach((order) => {
-  //       expect(order).toHaveProperty('direction', 'buy');
-  //       expect(order).toHaveProperty('status', 'open');
-  //     });
-
-  //     // Check if the response orders match the orderBook
-  //     expect(orders.length).toEqual(orderBook.buyOrders.length);
-
-  //     //More detailed comparison to check if order details match
-  //     orders.forEach((order) => {
-  //       const matchingOrder = orderBook.buyOrders.find((o) => o.id === order.id);
-  //       expect(matchingOrder.status).toEqual(order.status);
-  //       expect(matchingOrder.direction).toEqual(order.direction);
-  //     });
-  //   }, 60000);
 
   it('/orders/:direction (GET) - should return error if order direction is invalid', async () => {
     //send request
@@ -139,11 +118,7 @@ describe('OrdersController test', () => {
       sellOrders: [],
     });
 
-    // Мокваме set метода на redisGateway
-    //връща undefined щото не е нужно да връща нешо специално
     jest.spyOn(redisGateway, 'set').mockResolvedValue(undefined);
-
-    // Мокираме резултата от placeOrder метода
     jest
       .spyOn(service, 'placeOrder')
       .mockResolvedValue({ message: 'No match! New order was created' });
@@ -154,44 +129,15 @@ describe('OrdersController test', () => {
       .send(orderForMatch)
       .expect(201);
 
-    //console.log('response body', response.body);
-
     expect(response.body).toMatchObject({
       message: 'No match! New order was created',
     });
   }, 60000);
 
-  ////малко бърка в редиса май не е мн правилно
-  //   it('(POST) - should create new buy order', async () => {
-  //     const orderBook = await redisGateway.get<OrderBookDto>(ORDER_BOOK_KEY);
-
-  //     const initialBuyOrderCount = orderBook.buyOrders.length; //0
-  //     console.log('initialBuyOrderCount', initialBuyOrderCount);
-
-  //     //send request
-  //     const response = await request(app.getHttpServer())
-  //       .post('/api/exchange/orders')
-  //       .send(orderForMatch)
-  //       .expect(201);
-
-  //     const updatedOrderCount =
-  //       await redisGateway.get<OrderBookDto>(ORDER_BOOK_KEY);
-  //     const newBuyOrderCount = updatedOrderCount.buyOrders.length; //1
-
-  //     console.log('updatedOrderCount length', newBuyOrderCount);
-  //     console.log('response.body', response.body);
-
-  //     expect(response.body).toEqual({
-  //       message: 'No match! New order was created',
-  //     });
-  //     expect(newBuyOrderCount).toBe(initialBuyOrderCount + 1);
-  //   }, 60000);
-
   it('(POST) - should create new sell order', async () => {
     const orderBook = await redisGateway.get<OrderBookDto>(ORDER_BOOK_KEY);
 
     const initialSellOrderCount = orderBook.sellOrders.length;
-    console.log('initialSellOrderCount', initialSellOrderCount);
 
     //send request
     const response = await request(app.getHttpServer())
@@ -203,43 +149,30 @@ describe('OrdersController test', () => {
       await redisGateway.get<OrderBookDto>(ORDER_BOOK_KEY);
     const newSellOrderCount = updatedOrderCount.sellOrders.length;
 
-    console.log('updatedOrderCount length', newSellOrderCount);
     console.log('response.body', response.body);
 
     expect(newSellOrderCount).toBe(initialSellOrderCount + 1);
   }, 60000);
 
-  it('(POST) - should create new orderMatch', async () => {
-    jest.spyOn(redisGateway, 'get').mockResolvedValue({
-      buyOrders: [],
-      sellOrders: [],
-    });
+  it.only('(POST) - should create new orderMatch', async () => {
+    const saveBuyOrder = await orderRepository.save(
+      orderRepository.create(orderBuyMatch),
+    );
+    await redisGateway.set(ORDER_BOOK_KEY, orderBook, 18000);
 
-    jest.spyOn(redisGateway, 'set').mockResolvedValue(undefined);
+    console.log('POST for match - saveBuyOrder', saveBuyOrder);
 
-    const orderBook = await redisGateway.get<OrderBookDto>(ORDER_BOOK_KEY);
-    const initialSellOrderCount = orderBook.sellOrders.length; //0
-    console.log('initialSellOrderCount', initialSellOrderCount);
-
+    //send request
     const response = await request(app.getHttpServer())
       .post('/api/exchange/orders')
-      .send(orderForMatch2)
+      .send(orderSellMatch)
       .expect(201);
 
-    jest.spyOn(redisGateway, 'get').mockResolvedValue({
-      buyOrders: [],
-      sellOrders: [{ id: 1, amount: 100, price: 50, direction: 'sell' }],
-    });
+    expect(response.body).toMatchObject(expectedMatchResult);
+    expect(expectedMatchResult).toBeDefined();
 
-    const updatedOrderCount =
-      await redisGateway.get<OrderBookDto>(ORDER_BOOK_KEY);
-    const newSellOrderCount = updatedOrderCount.sellOrders.length; //1
-    console.log('updatedOrderCount length', newSellOrderCount);
-
-    expect(newSellOrderCount).toBe(initialSellOrderCount + 1);
-    expect(response.body).toEqual({
-      message: 'No match! New order was created',
-    });
+    expect(expectedMatchResult.amount).toBe(20);
+    expect(expectedMatchResult.price).toBe(50);
   }, 60000);
 });
 
@@ -260,19 +193,6 @@ const expectedOrderOne: Order = {
   direction: OrderDirection.SELL,
 } as Order;
 
-// const orderTwo: Order = {
-//   id: 279,
-//   amount: 50,
-//   price: 20.9,
-//   remaining: 50,
-//   status: OrderStatus.OPEN,
-//   direction: OrderDirection.SELL,
-//   matches: null,
-// } as Order;
-
-// const expectedSellOrder = orderOne;
-// expectedSellOrder.createdAt = expect.anything();
-
 const expectedMessage = 'Order with ID 2 not found';
 const invalidOrderDirection = 'Invalid Order Direction';
 const invalidOrderStatus = 'Invalid Order Status';
@@ -291,28 +211,46 @@ const orderForMatch2 = {
   direction: OrderDirection.SELL,
 };
 
-// const orderSell: Order = {
-//   id: 265,
-//   amount: 6,
-//   price: 29,
-//   remaining: 6,
-//   status: OrderStatus.OPEN,
-//   direction: OrderDirection.SELL,
-//   createdAt: new Date(),
-//   matches: [],
-// };
+const orderBuyMatch = {
+  id: 1,
+  amount: 20,
+  price: 50,
+  direction: OrderDirection.BUY,
+  status: OrderStatus.OPEN,
+  remaining: 20,
+};
 
-// const orderBuy: Order = {
-//   id: 265,
-//   amount: 9,
-//   price: 27,
-//   remaining: 9,
-//   status: OrderStatus.OPEN,
-//   direction: OrderDirection.BUY,
-//   matches: [],
-// } as Order;
+const orderSellMatch = {
+  id: 1,
+  amount: 20,
+  price: 50,
+  remaining: 20,
+  status: OrderStatus.OPEN,
+  direction: OrderDirection.SELL,
+  createdAt: new Date(),
+};
 
-// const orderBook2: OrderBookDto = {
-//   buyOrders: [orderBuy],
-//   sellOrders: [orderSell],
-// };
+const orderBuy: Order = {
+  id: 1,
+  amount: 20,
+  price: 50,
+  remaining: 20,
+  status: OrderStatus.OPEN,
+  direction: OrderDirection.BUY,
+  createdAt: new Date(),
+  matches: [],
+};
+
+const orderBook: OrderBookDto = {
+  buyOrders: [orderBuy],
+  sellOrders: [],
+};
+
+const expectedMatchResult = {
+  buyOrderId: 1,
+  sellOrderId: 1,
+  amount: 20,
+  price: 50,
+  createdAt: expect.any(String),
+  id: expect.any(Number),
+};

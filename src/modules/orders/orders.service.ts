@@ -88,6 +88,7 @@ export class OrdersService {
     price: number,
     orderBook: OrderBookDto,
   ) {
+   
     const isDuplicate = await this.handleDublicateSellOrders(orderBook, price);
     if (isDuplicate) {
       return;
@@ -98,6 +99,8 @@ export class OrdersService {
 
     for (let i = 0; i < orderBook.buyOrders.length; i++) {
       const buyObj = orderBook.buyOrders[i]; //obektite koito sa buy kolonkata
+      
+
 
       if (buyObj.direction === OrderDirection.BUY && buyObj.price >= price) {
         isOrderMatched = true;
@@ -125,6 +128,7 @@ export class OrdersService {
     buyObj: Order,
     orderBook: OrderBookDto,
   ) {
+   
     const orderMatch = new OrderMatch();
     orderMatch.buyOrderId = buyObj.id;
     orderMatch.sellOrderId = orderId;
@@ -222,6 +226,8 @@ export class OrdersService {
     for (let i = 0; i < orderBook.sellOrders.length; i++) {
       const sellObj = orderBook.sellOrders[i]; //obektite koito sa sell kolonkata
 
+      console.log('handleDublicateBuyOrders ', JSON.stringify(sellObj));
+
       if (
         sellObj.direction === OrderDirection.SELL &&
         sellObj.amount >= amount &&
@@ -299,17 +305,23 @@ export class OrdersService {
       orderBook.sellOrders.sort((a, b) => a.price - b.price);
     }
 
-    //orderBook.sellOrders.sort((a, b) => a.price - b.price);
     await this.redisGateway.set(ORDER_BOOK_KEY, orderBook, 18000);
     return orderBook;
   }
 
   private async sortBuyOrders(): Promise<OrderBookDto> {
     const orderBook: OrderBookDto = await this.redisGateway.get(ORDER_BOOK_KEY);
-    orderBook.buyOrders.sort((a, b) => b.price - a.price);
+
+    if(orderBook.buyOrders && orderBook.buyOrders.length > 0){
+      orderBook.buyOrders.sort((a, b) => b.price - a.price);
+    }
+    
     await this.redisGateway.set(ORDER_BOOK_KEY, orderBook, 18000);
     return orderBook;
   }
+
+
+
 
   //ако има едни и същи хора с еднакъв order просто да се увеличи amount-a, не се създава нов запис
   private async handleDublicateBuyOrders(

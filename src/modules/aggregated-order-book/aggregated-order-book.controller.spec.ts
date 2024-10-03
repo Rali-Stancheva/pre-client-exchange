@@ -60,8 +60,6 @@ describe('AggregatedOrderBookController', () => {
   });
 
 
-
-
   it('should return empty aggregated buy and sell order arrays when limit is 0', async () => {
     const level = 0; 
   

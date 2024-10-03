@@ -17,5 +17,8 @@ export class RedisGateway {
     return orderBookString ? JSON.parse(orderBookString) : { sellOrders: [], buyOrders: [] };
   }
 
+  async delete(key: string): Promise<void> {
+    await this.cacheManager.del(key);
+  }
 
 }

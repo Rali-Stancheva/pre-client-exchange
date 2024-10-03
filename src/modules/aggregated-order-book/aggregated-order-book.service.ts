@@ -3,12 +3,14 @@ import { Injectable } from '@nestjs/common';
 import { RedisGateway } from '../redis-client/redis-gateway';
 import { OrderBookDto } from '../order-book/dto/order-book.dto';
 import { ORDER_BOOK_KEY } from '../../common/constants/constants';
+import { AggregatedOrderBookDto } from './dto/aggregated-order-book.dto';
 
 @Injectable()
 export class AggregatedOrderBookService {
   constructor(private readonly redisGateway: RedisGateway) {}
 
-  async findAggregatedOrders(levels: number) {
+  async findAggregatedOrders(levels: number): Promise<AggregatedOrderBookDto> {
+
     const orderBook: OrderBookDto = await this.sortOrders();
 
     const aggregatedBuyOrders = orderBook.buyOrders

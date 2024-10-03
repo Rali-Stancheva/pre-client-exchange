@@ -1,11 +1,12 @@
 /* eslint-disable prettier/prettier */
 
-import { OrderDirection } from "../../../common/enums/order-direction.enum";
-import { OrderStatus } from "../../../common/enums/order-status.enum";
+import { OrderDirection } from '../../../common/enums/order-direction.enum';
+import { OrderStatus } from '../../../common/enums/order-status.enum';
 import { OrderMatch } from '../../../modules/order-match/entity/order-match.entity';
 
 import {
   Column,
+  CreateDateColumn,
   Entity,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -31,11 +32,9 @@ export class Order {
   @Column()
   direction: OrderDirection; //@Column({ type: 'enum', enum: OrderDirection })
 
-  @Column()
+  @CreateDateColumn({ name: 'createdAt', type: 'timestamptz' })
   createdAt: Date;
 
-
-
-  @ManyToOne(() => OrderMatch, (matches) => matches.order) 
+  @ManyToOne(() => OrderMatch, (matches) => matches.order)
   matches: OrderMatch[];
 }
